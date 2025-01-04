@@ -40,8 +40,35 @@ jobs:
           mkdir -p output
           cp $HOME/tmux/bin/tmux output/
 
-      - name: Upload artifact
+      - name: Upload binary as artifact
         uses: actions/upload-artifact@v4
         with:
-          name: tmux-${{ runner.os }}-binary
-          path: output/tmux
+          name: tmux-${{ matrix.os }}
+          path: artifacts/${{ matrix.os }}/
+          retention-days: 7
+
+  upload:
+    needs: build
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout source code
+        uses: actions/checkout@v4
+
+      - name: Download binaries from all jobs
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+
+      - name: Create GitHub Release and Upload Artifacts
+        uses: ncipollo/release-action@v1
+        with:
+          artifacts: artifacts/*
+          token: ${{ secrets.GITHUB_TOKEN }}
+          tag: v${{ github.run_number }}
+          name: "tmux Build ${{ github.run_number }}"
+          body: |
+            Prebuilt tmux binaries for macOS and Ubuntu.
+          draft: false
+          prerelease: false
+
