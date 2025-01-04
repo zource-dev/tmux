@@ -31,44 +31,35 @@ jobs:
       - name: Build tmux
         run: |
           sh autogen.sh
-          ./configure --prefix=$HOME/tmux --enable-utf8proc
-          make
-          make install
+          ./configure --prefix=$HOME/tmux --enable-utf8proc && make
+          cp tmux tmux-${{ runner.os }}
 
-      - name: Package binary
-        run: |
-          mkdir -p output
-          cp $HOME/tmux/bin/tmux output/
-
-      - name: Upload binary as artifact
+      - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
-          name: tmux-${{ matrix.os }}
-          path: artifacts/${{ matrix.os }}/
-          retention-days: 7
+          name: tmux-${{ runner.os }}
+          path: tmux-${{ runner.os }}
+          retention-days: 1
 
-  upload:
+  release:
     needs: build
     runs-on: ubuntu-latest
-
+    env:
+      GH_REPO: ${{ github.repository }}
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    permissions:
+      contents: write
     steps:
-      - name: Checkout source code
-        uses: actions/checkout@v4
-
-      - name: Download binaries from all jobs
+      - name: Download all artifacts
         uses: actions/download-artifact@v4
         with:
-          path: artifacts
+          merge-multiple: true
 
-      - name: Create GitHub Release and Upload Artifacts
-        uses: ncipollo/release-action@v1
-        with:
-          artifacts: artifacts/*
-          token: ${{ secrets.GITHUB_TOKEN }}
-          tag: v${{ github.run_number }}
-          name: "tmux Build ${{ github.run_number }}"
-          body: |
-            Prebuilt tmux binaries for macOS and Ubuntu.
-          draft: false
-          prerelease: false
+      - name: Display structure of downloaded files
+        run: ls -R
 
+      - name: Release
+        run: |
+          gh release create v${{ github.run_number }} --latest --title v${{ github.run_number }} tmux-*
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
