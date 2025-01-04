@@ -1,0 +1,47 @@
+name: Build tmux for macOS and Ubuntu
+
+on:
+  push:
+    branches:
+      - master
+  pull_request:
+
+jobs:
+  build:
+    strategy:
+      matrix:
+        os: [macos-latest, ubuntu-latest]
+    runs-on: ${{ matrix.os }}
+
+    steps:
+      - name: Checkout source code
+        uses: actions/checkout@v3
+
+      - name: Install dependencies on macOS
+        if: runner.os == 'macOS'
+        run: |
+          brew install automake autoconf libevent pkg-config ncurses utf8proc
+
+      - name: Install dependencies on Ubuntu
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y automake autoconf build-essential libevent-dev ncurses-dev pkg-config libutf8proc-dev
+
+      - name: Build tmux
+        run: |
+          sh autogen.sh
+          ./configure --prefix=$HOME/tmux --enable-utf8proc
+          make
+          make install
+
+      - name: Package binary
+        run: |
+          mkdir -p output
+          cp $HOME/tmux/bin/tmux output/
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v3
+        with:
+          name: tmux-${{ runner.os }}-binary
+          path: output/tmux
